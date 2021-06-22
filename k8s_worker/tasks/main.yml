@@ -1,0 +1,81 @@
+---
+# tasks file for k8s_worker
+- name: Obtaining the Token received from Master Node
+  shell: echo "{{ hostvars['Token_Pass_Host']['token_pass']['stdout']}}"
+  register: token_received
+
+- name: Docker Installation
+  package:
+    name: docker
+    state: present
+
+- name: Starting Docker Service
+  service:
+    name: docker
+    state: started
+    enabled: yes
+
+- name: Kubernetes Repo Creation
+  yum_repository:
+    baseurl: https://packages.cloud.google.com/yum/repos/kubernetes-el7-\$basearch
+    name: kubernetes
+    description: kubernetes
+    enabled: true
+    gpgcheck: yes
+    repo_gpgcheck: yes
+    gpgkey:
+      - https://packages.cloud.google.com/yum/doc/yum-key.gpg
+      - https://packages.cloud.google.com/yum/doc/rpm-package-key.gpg
+    exclude:
+      - kubelet
+      - kubeadm
+      - kubectl
+  register: indicator
+
+- name: Installation of kubeadm, kubelet and kubectl
+  yum:
+    name:
+      - kubelet
+      - kubeadm
+      - kubectl
+    disable_excludes: kubernetes
+    state: present
+
+- name: Starting kubelet Service
+  service:
+    name: kubelet
+    state: started
+    enabled: yes
+
+- name: Configuring Docker Cgroup
+  template:
+    src: k8s_worker/templates/daemon.json
+    dest: /etc/docker/daemon.json
+
+- name: Restarting Docker Service
+  service:
+    name: docker
+    state: restarted
+    enabled: yes
+
+- name: Installation of iproute-tc
+  yum:
+    name: iproute-tc
+    state: present
+
+- name: Copying k8s.conf to /etc/sysctl.d
+  copy:
+    src: k8s_worker/files/k8s.conf
+    dest: /etc/sysctl.d/k8s.conf
+  register: sysctl_status
+
+- name: Reading values from all the system directories
+  command: "sysctl --system"
+  when: sysctl_status.changed != false
+
+- name: Clearing RAM Memory Cache, Buffer and Swap Space
+  command: "echo 3 > /proc/sys/vm/drop_caches"
+
+- name: Executing token command to establish connectivity with Master Node
+  command: "{{ token_received[\"stdout\"] }}"
+  when: indicator.changed != false
