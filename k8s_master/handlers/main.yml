@@ -1,0 +1,5 @@
+---
+# handlers file for k8s_master
+- name: Initializing k8s control plane
+  command: 'kubeadm init --pod-network-cidr="{{ pod_network_cidr }}" --ignore-preflight-errors=NumCPU --ignore-preflight-errors=Mem'
+  listen: Initialize Kubernetes Cluster Control Plane
