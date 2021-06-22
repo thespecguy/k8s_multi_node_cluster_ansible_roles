@@ -1,0 +1,147 @@
+---
+# tasks file for aws_ec2_setup
+- name: Installation of boto3 library
+  pip:
+    name: boto3
+    state: present
+
+- name: Creation of VPC for EC2 Instance
+  ec2_vpc_net:
+    aws_access_key: "{{ aws_access_key }}"
+    aws_secret_key: "{{ aws_secret_key }}"
+    region: "{{ region }}"
+    name: "{{ vpc_name}}"
+    cidr_block: "{{ cidr_block_vpc }}"
+    state: present
+  register: ec2_vpc
+    
+- name: Internet Gateway for VPC
+  ec2_vpc_igw:
+    aws_access_key: "{{ aws_access_key }}"
+    aws_secret_key: "{{ aws_secret_key }}"
+    region: "{{ region }}"
+    state: present
+    vpc_id: "{{ ec2_vpc.vpc.id  }}"
+    tags:
+      Name: "{{ igw_name }}"
+  register: igw_info
+  
+- name: VPC Subnet Creation
+  ec2_vpc_subnet:
+    aws_access_key: "{{ aws_access_key }}"
+    aws_secret_key: "{{ aws_secret_key }}"
+    region: "{{ region }}"
+    vpc_id: "{{ ec2_vpc.vpc.id  }}"
+    az: "{{ availability_zone }}"
+    state: present
+    cidr: "{{ cidr_subnet  }}"
+    map_public: yes
+    tags:
+      Name: "{{ subnet_name }}"
+  register: subnet_info
+  
+- name: Creation of VPC Subnet Route Table
+  ec2_vpc_route_table:
+    aws_access_key: "{{ aws_access_key }}"
+    aws_secret_key: "{{ aws_secret_key }}"
+    region: "{{ region }}"
+    vpc_id: "{{ ec2_vpc.vpc.id  }}"
+    state: present
+    tags:
+      Name: "{{ route_table_name }}"
+    subnets: [ "{{ subnet_info.subnet.id }}" ]
+    routes:
+      - dest: 0.0.0.0/0
+        gateway_id: "{{ igw_info.gateway_id }}"
+  
+- name: Security Group Creation for Master Node
+  ec2_group:
+    aws_access_key: "{{ aws_access_key }}"
+    aws_secret_key: "{{ aws_secret_key }}"
+    region: "{{ region }}"
+    name: "{{ sg_name_master }}"
+    vpc_id: "{{ ec2_vpc.vpc.id  }}"
+    state: present
+    description: Security Group for Master Node
+    tags:
+      Name: "{{ sg_name_master }}"
+    rules:
+    - proto: tcp
+      ports:
+        - 8090
+        - 10250
+        - 22
+        - 10255
+        - 6443
+      cidr_ip: 0.0.0.0/0
+    - proto: udp
+      ports:
+        - 8472
+      cidr_ip: 0.0.0.0/0
+  register: security_group_master
+  
+- name: Security Group Creation for Worker Node
+  ec2_group:
+    aws_access_key: "{{ aws_access_key }}"
+    aws_secret_key: "{{ aws_secret_key }}"
+    region: "{{ region }}"
+    name: "{{ sg_name_worker }}"
+    vpc_id: "{{ ec2_vpc.vpc.id  }}"
+    state: present
+    description: Security Group for Worker Node
+    tags:
+      Name: "{{ sg_name_worker }}"
+    rules:
+    - proto: tcp
+      ports:
+        - 8090
+        - 10250
+        - 22
+        - 10255
+      cidr_ip: 0.0.0.0/0
+    - proto: udp
+      ports:
+        - 8472
+      cidr_ip: 0.0.0.0/0
+  register: security_group_worker
+
+- name: Creation of EC2 Instance for Master Node
+  ec2:
+    aws_access_key: "{{ aws_access_key }}"
+    aws_secret_key: "{{ aws_secret_key }}"
+    region: "{{ region }}"
+    image: "{{ image_id }}"
+    exact_count: 1
+    instance_type: "{{ instance_type }}"
+    vpc_subnet_id: "{{ subnet_info.subnet.id }}"
+    key_name: "{{ key_name }}"
+    group_id: "{{ security_group_master.group_id }}"
+    wait: yes
+    wait_timeout: 600
+    instance_tags:
+      Name: k8smaster
+    count_tag:
+      Name: k8smaster
+  
+- name: Creation of EC2 Instance for Worker Node
+  ec2:
+    aws_access_key: "{{ aws_access_key }}"
+    aws_secret_key: "{{ aws_secret_key }}"
+    region: "{{ region }}"
+    image: "{{ image_id }}"
+    instance_type: "{{ instance_type }}"
+    vpc_subnet_id: "{{ subnet_info.subnet.id }}"
+    key_name: "{{ key_name }}"
+    group_id: "{{ security_group_worker.group_id }}"
+    exact_count: "{{ instance_count }}"
+    wait: yes
+    wait_timeout: 600
+    instance_tags:
+      Name: k8sworker
+    count_tag:
+      Name: k8sworker
+  
+- meta: refresh_inventory
+  
+- pause:
+    minutes: 4

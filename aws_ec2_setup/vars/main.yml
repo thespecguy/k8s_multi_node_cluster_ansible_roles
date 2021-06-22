@@ -1,0 +1,18 @@
+---
+# vars file for aws_ec2_setup
+aws_access_key: "AKIAX3LT6HD6FI6FDFWS"
+aws_secret_key: "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"
+region: "ap-south-1"
+vpc_name: "ansible_vpc"
+cidr_block_vpc: "10.0.0.0/16"
+igw_name: "ansible_igw"
+cidr_subnet: "10.0.1.0/24"
+subnet_name: "ansible_subnet"
+route_table_name: "ansible_route_table"
+sg_name_master: "master_sg"
+sg_name_worker: "worker_sg"
+instance_type: "t2.micro"
+key_name: "bastion"
+instance_count: 4
+image_id: "ami-068d43a544160b7ef"
+availability_zone: "ap-south-1a"
