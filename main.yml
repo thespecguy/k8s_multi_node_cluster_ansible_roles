@@ -1,0 +1,15 @@
+- hosts: localhost
+  gather_facts: no
+  roles:
+  - role: aws_ec2_setup
+
+- hosts: tag_Name_k8smaster
+  remote_user: ec2-user
+  roles:
+  - role: k8s_master
+
+- hosts: tag_Name_k8sworker
+  gather_facts: no
+  remote_user: ec2-user
+  roles:
+  - role: k8s_worker 
