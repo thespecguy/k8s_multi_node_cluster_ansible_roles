@@ -1,7 +1,7 @@
 ---
 # vars file for aws_ec2_setup
-aws_access_key: "AKIAX3LT6HD6FI6FDFWS"
-aws_secret_key: "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"
+aws_access_key: "XXXX"
+aws_secret_key: "XXXX"
 region: "ap-south-1"
 vpc_name: "ansible_vpc"
 cidr_block_vpc: "10.0.0.0/16"
